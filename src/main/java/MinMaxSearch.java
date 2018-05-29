@@ -13,39 +13,47 @@ import java.util.*;
  */
 public class MinMaxSearch {
     public static void main(String[] args){
-
+        if(args.length < 3){
+            System.out.println("<input file> <N> <size>");
+            System.exit(-1);
+        }
         String inputFile = args[0];
-        final int N = 10;
+        int N = Integer.parseInt(args[1]);
+        int size = Integer.parseInt(args[2]);
         SparkConf conf = new SparkConf().setAppName("MinMax Search");
         JavaSparkContext context = new JavaSparkContext(conf);
+
+
         JavaRDD<String> input = context.textFile(inputFile,1);
 
-        JavaPairRDD<String, Integer> pair = input.mapToPair(new PairFunction<String, String, Integer>() {
-            public Tuple2<String, Integer> call(String s) throws Exception {
+        JavaPairRDD<Double, Double> pair = input.mapToPair(s -> {
                 String[] tok = s.split(" ");
-                return new Tuple2<String, Integer>(tok[0], Integer.parseInt(tok[1]));
-            }
+                return new Tuple2<>(Double.parseDouble(tok[0]), Double.parseDouble(tok[1]));
         });
 
-        JavaRDD<SortedMap<Integer, String>> partition = pair.mapPartitions(new FlatMapFunction<Iterator<Tuple2<String, Integer>>, SortedMap<Integer, String>>() {
-            public Iterator<SortedMap<Integer, String>> call(Iterator<Tuple2<String, Integer>> tuple2Iterator) throws Exception {
-                SortedMap<Integer, String> topK = new TreeMap<Integer, String>();
+        JavaRDD<SortedMap<Double, String>> partition = pair.mapPartitions(tuple2Iterator -> {
+                SortedMap<Double, String> topK = new TreeMap<>();
+                double lower = -5.12;
+                double upper = 5.12;
+                int A = 10;
                 while(tuple2Iterator.hasNext()){
-                    Tuple2<String, Integer> t = tuple2Iterator.next();
-                    topK.put(t._2(),t._1());
+                    Tuple2<Double, Double> t = tuple2Iterator.next();
+                    double x = t._1() / size * (upper - lower) + lower;
+                    double y = t._2() /size * (upper - lower) + lower;
+                    double rast = 2 * A + (x*x - A * Math.cos(2 * Math.PI * x)) + (y*y - A * Math.cos(2 * Math.PI * y));
+                    topK.put(rast,t.toString());
                     if(topK.size() > N) {
                         topK.remove(topK.firstKey());
                     }
                 }
-                return Collections.singletonList(topK).iterator(); // need return to be immutable
-            }
+                return Collections.singletonList(topK).iterator();
         });
 
-        SortedMap<Integer, String> topK = new TreeMap<Integer, String>();
-        List<SortedMap<Integer,String>> res = partition.collect();
+        SortedMap<Double, String> topK = new TreeMap<>();
+        List<SortedMap<Double,String>> res = partition.collect();
 
-        for(SortedMap<Integer, String> localRes : res){
-            for(Map.Entry<Integer,String> entry : localRes.entrySet()){
+        for(SortedMap<Double, String> localRes : res){
+            for(Map.Entry<Double,String> entry : localRes.entrySet()){
                 topK.put(entry.getKey(), entry.getValue());
                 if(topK.size() > N){
                     topK.remove(topK.firstKey());
@@ -53,7 +61,7 @@ public class MinMaxSearch {
             }
         }
 
-        for(Map.Entry<Integer,String> entry : topK.entrySet()){
+        for(Map.Entry<Double,String> entry : topK.entrySet()){
             System.out.println(entry.getKey() + " " + entry.getValue());
         }
     }
