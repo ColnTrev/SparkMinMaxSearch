@@ -20,12 +20,14 @@ public class MinMaxSearch {
         String inputFile = args[0];
         int N = Integer.parseInt(args[1]);
         int size = Integer.parseInt(args[2]);
+        boolean show = args.length == 4? Boolean.parseBoolean(args[3]) : false;
         SparkConf conf = new SparkConf().setAppName("MinMax Search");
         JavaSparkContext context = new JavaSparkContext(conf);
 
 
         JavaRDD<String> input = context.textFile(inputFile,1);
 
+        long startTime = System.currentTimeMillis();
         JavaPairRDD<Double, Double> pair = input.mapToPair(s -> {
                 String[] tok = s.split(" ");
                 return new Tuple2<>(Double.parseDouble(tok[0]), Double.parseDouble(tok[1]));
@@ -43,7 +45,7 @@ public class MinMaxSearch {
                     double rast = 2 * A + (x*x - A * Math.cos(2 * Math.PI * x)) + (y*y - A * Math.cos(2 * Math.PI * y));
                     topK.put(rast,t.toString());
                     if(topK.size() > N) {
-                        topK.remove(topK.firstKey());
+                        topK.remove(topK.lastKey());
                     }
                 }
                 return Collections.singletonList(topK).iterator();
@@ -56,13 +58,16 @@ public class MinMaxSearch {
             for(Map.Entry<Double,String> entry : localRes.entrySet()){
                 topK.put(entry.getKey(), entry.getValue());
                 if(topK.size() > N){
-                    topK.remove(topK.firstKey());
+                    topK.remove(topK.lastKey());
                 }
             }
         }
-
-        for(Map.Entry<Double,String> entry : topK.entrySet()){
-            System.out.println(entry.getKey() + " " + entry.getValue());
+        long endTime = System.currentTimeMillis();
+        if(show) {
+            for (Map.Entry<Double, String> entry : topK.entrySet()) {
+                System.out.println(entry.getKey() + " " + entry.getValue());
+            }
         }
+        System.out.println("Elapsed Time: " + (endTime - startTime));
     }
 }
